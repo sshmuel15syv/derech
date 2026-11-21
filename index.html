@@ -226,7 +226,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
     <div class="chips" id="chips"></div>
     <div class="bridge" id="bridge" hidden>
       <div class="bridge-step" id="bridge-copied" hidden>
-        <b>הועתק.</b> פתח את Claude, הדבק בשיחה חדשה ושלח. כשהוא עונה, העתק את כל התשובה שלו וחזור לכאן.
+        <b>הועתק.</b> הדבק ב-Claude ושלח: בשיחה חדשה, או בתוך שיחה שבה עבדת על פרויקט, כדי שיעדכן לפי מה שעשיתם בה. כשהוא עונה, העתק את כל התשובה וחזור לכאן.
         <a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">פתח את Claude</a>
       </div>
       <label for="bridge-paste">התשובה של Claude</label>
@@ -579,7 +579,7 @@ $("#tab-main").onclick = () => setTab("main");
 $("#tab-chat").onclick = () => setTab("chat");
 
 // ---------- chat ----------
-const CHIPS = ["מה הכי חשוב לעשות היום?", "תבנה לי מפת דרך עם שלבים לפרויקט הראשון", "תסדר לי את מחר לפי סדר העדיפויות", "פרק לי את השלב הנוכחי למשימות קצרות"];
+const CHIPS = ["עדכן את הפרויקטים לפי מה שעשינו בשיחה הזאת", "תסדר לי את הלו״ז של מחר לפי סדר העדיפויות", "מה הכי חשוב לעשות היום?", "פרק לי את השלב הנוכחי למשימות קצרות"];
 function scrollMsgs(){ const m = $("#msgs"); m.scrollTop = m.scrollHeight; }
 function renderChat(){
   $("#send").setAttribute("aria-label", cfg().apiKey ? "שליחה" : "העתקה ל-Claude");
@@ -589,7 +589,7 @@ function renderChat(){
   if(!chat.length) html = '<div class="msg assistant">שלום! אני כאן כדי לעזור לך לנהל את הפרויקטים ואת סדר היום. אפשר לבקש ממני להוסיף פרויקט, לבנות מפת דרך עם שלבים, לפרק שלב למשימות קטנות, לכתוב שאלות לשיחות, או להזיז דברים בלו״ז.</div>';
   chat.forEach(x => { html += '<div class="msg ' + (x.role === "user" ? "user" : "assistant") + '">' + esc(x.content) + (x.ops && x.ops.length ? '<span class="ops">' + x.ops.map(esc).join(" · ") + '</span>' : "") + '</div>'; });
   m.innerHTML = html;
-  $("#chips").innerHTML = chat.length > 1 ? "" : CHIPS.map(c => '<button type="button" class="chip">' + esc(c) + '</button>').join("");
+  $("#chips").innerHTML = (chat.length > 1 && cfg().apiKey) ? "" : CHIPS.map(c => '<button type="button" class="chip">' + esc(c) + '</button>').join("");
   $("#send").disabled = busy;
   scrollMsgs();
 }
