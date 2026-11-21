@@ -191,6 +191,11 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
 .send{width:42px;height:42px;border-radius:12px;border:0;background:var(--accent);color:#fff;display:grid;place-items:center;flex:none}
 .send:disabled{opacity:.5;cursor:default}
 .send svg{width:18px;height:18px;transform:scaleX(-1)}
+.bridge{margin:0 12px 10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);display:flex;flex-direction:column;gap:8px;font-size:.92rem}
+.bridge label{font-weight:600;color:var(--muted);font-size:.85rem}
+.bridge textarea{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;resize:vertical;min-height:70px}
+.bridge-step{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.bridge-acts{display:flex;gap:8px}
 .toast{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:10px;z-index:30;font-size:.9rem;max-width:calc(100% - 32px)}
 .banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:10px 14px;font-size:.9rem}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -214,13 +219,22 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2
   <main class="main" id="main"><div class="main-in" id="main-in"></div></main>
   <aside class="chat" id="chat" aria-label="שיחה עם Claude">
     <div class="chat-head">
-      <div><h2>שיחה עם Claude</h2><div class="sub">אפשר לבקש לשנות משימות, שלבים וסדר יום</div></div>
+      <div><h2>שיחה עם Claude</h2><div class="sub" id="chat-sub">אפשר לבקש לשנות משימות, שלבים וסדר יום</div></div>
       <div class="act"><button class="btn ghost" id="clear-chat" type="button">ניקוי</button></div>
     </div>
     <div class="msgs" id="msgs"></div>
     <div class="chips" id="chips"></div>
+    <div class="bridge" id="bridge" hidden>
+      <div class="bridge-step" id="bridge-copied" hidden>
+        <b>הועתק.</b> פתח את Claude, הדבק בשיחה חדשה ושלח. כשהוא עונה, העתק את כל התשובה שלו וחזור לכאן.
+        <a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener">פתח את Claude</a>
+      </div>
+      <label for="bridge-paste">התשובה של Claude</label>
+      <textarea id="bridge-paste" rows="3" placeholder="הדבק כאן את כל התשובה של Claude"></textarea>
+      <div class="bridge-acts"><button class="btn primary" id="bridge-apply" type="button">ביצוע השינויים</button><button class="btn ghost" id="bridge-close" type="button">סגירה</button></div>
+    </div>
     <form class="composer" id="composer">
-      <textarea id="chat-input" rows="1" placeholder="כתוב לי… למשל: תזיז את שיחות הוולידציה למחר ב-10"></textarea>
+      <textarea id="chat-input" rows="1" placeholder="מה לשנות? למשל: תזיז את שיחות הגילוי למחר ב-10"></textarea>
       <button class="send" id="send" type="submit" aria-label="שליחה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </form>
   </aside>
@@ -332,11 +346,11 @@ function boot(){
 function openSettings(first){
   const c = cfg();
   sheet({kicker: "הגדרות", title: first ? "ברוך הבא! שני חיבורים קטנים" : "חיבורים",
-    body: '<p style="margin:0;color:var(--muted)">' + (first ? "הדף עובד גם בלי זה, אבל אז הנתונים נשמרים רק במכשיר הזה והשיחה כבויה. ההוראות המלאות בקובץ README שבתיקייה." : "הערכים נשמרים רק במכשיר הזה.") + '</p>',
+    body: '<p style="margin:0;color:var(--muted)">' + (first ? "בלי הגיליון הנתונים נשמרים רק במכשיר הזה. השיחה עובדת דרך אפליקציית Claude הרגילה שלך, בלי תשלום נוסף." : "הערכים נשמרים רק במכשיר הזה.") + '</p>',
     fields: [
       {key: "sheetUrl", label: "כתובת ה-Web App של הגיליון (מסתיימת ב-/exec)", value: c.sheetUrl, ph: "https://script.google.com/macros/s/…/exec"},
       {key: "secret", label: "הקוד הסודי (אותו SECRET שכתבת בסקריפט)", value: c.secret},
-      {key: "apiKey", label: "מפתח API של Anthropic (לשיחה עם Claude)", type: "password", value: c.apiKey, ph: "sk-ant-…"}
+      {key: "apiKey", label: "מפתח API של Anthropic (לא חובה. בלי מפתח, השיחה עוברת דרך אפליקציית Claude)", type: "password", value: c.apiKey, ph: "sk-ant-…"}
     ],
     onSave: v => {
       LS.set("derech-sheet-url", v.sheetUrl); LS.set("derech-secret", v.secret); LS.set("derech-api-key", v.apiKey);
@@ -568,6 +582,8 @@ $("#tab-chat").onclick = () => setTab("chat");
 const CHIPS = ["מה הכי חשוב לעשות היום?", "תבנה לי מפת דרך עם שלבים לפרויקט הראשון", "תסדר לי את מחר לפי סדר העדיפויות", "פרק לי את השלב הנוכחי למשימות קצרות"];
 function scrollMsgs(){ const m = $("#msgs"); m.scrollTop = m.scrollHeight; }
 function renderChat(){
+  $("#send").setAttribute("aria-label", cfg().apiKey ? "שליחה" : "העתקה ל-Claude");
+  $("#chat-sub").textContent = cfg().apiKey ? "אפשר לבקש לשנות משימות, שלבים וסדר יום" : "כותבים בקשה, מעתיקים ל-Claude, ומדביקים את התשובה";
   const m = $("#msgs");
   let html = "";
   if(!chat.length) html = '<div class="msg assistant">שלום! אני כאן כדי לעזור לך לנהל את הפרויקטים ואת סדר היום. אפשר לבקש ממני להוסיף פרויקט, לבנות מפת דרך עם שלבים, לפרק שלב למשימות קטנות, לכתוב שאלות לשיחות, או להזיז דברים בלו״ז.</div>';
@@ -660,7 +676,7 @@ async function send(){
   const box = $("#chat-input");
   const text = box.value.trim();
   if(!text || busy) return;
-  if(!cfg().apiKey){ toast("צריך להכניס מפתח API בהגדרות"); openSettings(false); return; }
+  if(!cfg().apiKey) return bridgeCopy(text);
   box.value = ""; box.style.height = "auto";
   chat.push({role: "user", content: text, ts: Date.now()});
   busy = true; renderChat();
@@ -714,6 +730,67 @@ async function send(){
   busy = false; ctl = null;
   renderChat(); saveChat();
 }
+
+// ---------- bridge: chat through the regular Claude app ----------
+function bridgePrompt(request){
+  const now = new Date();
+  const defs = tools(() => {}).map(t => "- " + t.name + ": " + t.description + " שדות: " + JSON.stringify(t.inputSchema.properties) + (t.inputSchema.required ? " חובה: " + t.inputSchema.required.join(", ") : "")).join("\n");
+  return "אתה עוזר לי לנהל את הדף 'מפת הדרך שלי': פרויקטים, שלבים (נקודות ציון), משימות קצרות וסדר יום.\n" +
+    "ענה בעברית, קצר. כתוב קודם בשורה-שתיים מה אתה משנה, ואחר כך את השינויים בבלוק קוד אחד שמתחיל ב-```derech ומכיל מערך JSON של פעולות, כל פעולה בצורה {\"op\": שם, ...שדות}.\n" +
+    "דוגמה:\n```derech\n[{\"op\":\"add_event\",\"date\":\"2026-11-22\",\"time\":\"10:00\",\"title\":\"שיחות גילוי\",\"projectId\":\"p-ztd\"}]\n```\n" +
+    "להפנות לפרויקט, שלב, משימה או אירוע קיימים רק לפי ה-id שלהם מהמצב למטה. לפריט חדש שאתה יוצר באותה תשובה אפשר לתת \"ref\" משלך (למשל \"ref\":\"s1\") ולהשתמש בו אחר כך במקום id. " +
+    "כשבונים מפת דרך: 4–7 שלבים, כל שלב עם משימות קצרות וברורות, ובשדה details הפירוט המעשי (שאלות, צעדים). אל תמחק בלי בקשה מפורשת. אם הבקשה לא ברורה, שאל אותי בלי בלוק קוד.\n\n" +
+    "הפעולות האפשריות:\n" + defs + "\n\n" +
+    "היום: " + now.toLocaleDateString("he-IL", {weekday:"long"}) + " " + dkey(now) + ", השעה " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ".\n" +
+    "המצב הנוכחי (JSON):\n" + snapshotForClaude() + "\n\n" +
+    "הבקשה שלי: " + request;
+}
+async function copyText(s){
+  try { await navigator.clipboard.writeText(s); return true; } catch(e){}
+  try { const ta = document.createElement("textarea"); ta.value = s; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.append(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); return ok; } catch(e){ return false; }
+}
+async function bridgeCopy(text){
+  const box = $("#chat-input");
+  const ok = await copyText(bridgePrompt(text));
+  if(!ok){ toast("ההעתקה נכשלה. נסה שוב"); return; }
+  box.value = ""; box.style.height = "auto";
+  chat.push({role: "user", content: text, ts: Date.now()});
+  renderChat(); saveChat();
+  $("#bridge").hidden = false; $("#bridge-copied").hidden = false; $("#bridge-paste").value = "";
+}
+function bridgeApply(){
+  const raw = $("#bridge-paste").value;
+  const m = raw.match(/```\s*derech\s*([\s\S]*?)```/) || raw.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
+  const explain = raw.replace(/```[\s\S]*?```/g, "").trim();
+  if(!m){
+    if(!raw.trim()){ toast("הדבק קודם את התשובה של Claude"); return; }
+    chat.push({role: "assistant", content: explain || raw.trim(), ops: [], ts: Date.now()});
+    $("#bridge-paste").value = ""; $("#bridge").hidden = true;
+    renderChat(); saveChat(); toast("אין בתשובה שינויים לביצוע"); return;
+  }
+  let list;
+  try { list = JSON.parse(m[1].trim()); if(!Array.isArray(list)) list = [list]; } catch(e){ toast("לא הצלחתי לקרוא את קוד השינויים. בקש מ-Claude לשלוח אותו שוב"); return; }
+  const ops = [], fails = [], refs = {};
+  const tl = tools(s => ops.push(s));
+  const fix = v => (typeof v === "string" && refs[v]) ? refs[v] : v;
+  for(const item of list){
+    if(!item || typeof item !== "object") continue;
+    const t = tl.find(x => x.name === item.op);
+    if(!t){ fails.push("פעולה לא מוכרת: " + item.op); continue; }
+    const input = {};
+    for(const k of Object.keys(item)) if(k !== "op" && k !== "ref") input[k] = fix(item[k]);
+    try {
+      const r = t.execute(input);
+      if(item.ref && r && typeof r === "object"){ refs[item.ref] = r.id || r.stageId || r.taskId || r.eventId; }
+    } catch(e){ fails.push(item.op + ": " + (e.message || e)); }
+  }
+  chat.push({role: "assistant", content: (explain || "בוצע.") + (fails.length ? "\n\nלא בוצעו: " + fails.join("; ") : ""), ops, ts: Date.now()});
+  $("#bridge-paste").value = ""; $("#bridge").hidden = true;
+  renderChat(); saveChat();
+  toast(ops.length ? "בוצעו " + ops.length + " שינויים" : "לא בוצעו שינויים");
+}
+$("#bridge-apply").onclick = bridgeApply;
+$("#bridge-close").onclick = () => { $("#bridge").hidden = true; };
 
 boot();
 })();
